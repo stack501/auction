@@ -38,6 +38,24 @@ exports.createGood = async (req, res, next) => {
       img: req.file.filename,
       price,
     });
+    const end = new Date();
+    end.setDate(end.getDate() + 1); //하루 뒤
+    const job = schedule.scheduleJob(end, async () => {
+        const success = await Auction.findOne({
+            where: { GoodId: good.id },
+            order: [['bid', 'DESC']],
+        });
+        await good.setSold(success.UserId);
+        await User.update({
+            money: sequelize.literal(`money - ${success.bid}`),
+        }, {
+            where: { id: success.UserId },
+        })
+    });
+    job.on('error', console.error);
+    job.on('success', () => {
+        console.log(`${good.id} 스케쥴링 성공`);
+    });
     res.redirect('/');
   } catch (error) {
     console.error(error);
