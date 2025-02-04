@@ -5,7 +5,7 @@ const fs = require('fs');
 
 
 const { isLoggedIn, isNotLoggedIn } = require('../middlewares');
-const { renderMain, renderJoin, renderGood, createGood, renderAuction, bid } = require('../controllers');
+const { renderMain, renderJoin, renderGood, createGood, renderAuction, bid, renderList } = require('../controllers');
 
 const router = express.Router();
 
@@ -41,5 +41,5 @@ const upload = multer({
 router.post('/good', isLoggedIn, upload.single('img'), createGood);
 router.get('/good/:id', isLoggedIn, renderAuction);
 router.post('/good/:id/bid', isLoggedIn, bid);
-
+router.get('/list', isLoggedIn, renderList);
 module.exports = router;
