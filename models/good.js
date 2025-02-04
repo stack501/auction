@@ -28,7 +28,7 @@ class Good extends Sequelize.Model {
     }
     static associate(db) {
         db.Good.belongsTo(db.User, { as: 'Owner' });
-        db.Good.belongsTo(db.User, { as: 'Sold '});
+        db.Good.belongsTo(db.User, { as: 'Sold'});
         db.Good.hasMany(db.Auction);
     }
 }
