@@ -8,19 +8,27 @@
         <th>상품명</th>
         <th>이미지</th>
         <th>시작 가격</th>
-        <th>종료 시간</th>
+        <!-- 입장 가능 기간(경매 시작 ~ 종료)을 보여주는 열 -->
+        <th>입장 기간</th>
+        <th>종료 시간(남은 시간)</th>
         <th>입장</th>
       </tr>
       {% for good in goods %}
         <tr>
-          <td>{{good.name}}</td>
+          <td>{{ good.name }}</td>
           <td>
-            <img src="/img/{{good.img}}">
+            <img src="/img/{{ good.img }}">
           </td>
-          <td>{{good.price}}</td>
-          <td class="time" data-start="{{good.createdAt}}">00:00:00</td>
+          <td>{{ good.price }}</td>
+          <!-- 입장 기간은 startTime과 endTime을 포맷팅하여 출력 -->
           <td>
-            <a href="/good/{{good.id}}" class="enter btn">입장</a>
+            {{ good.startTime | date("yyyy-MM-dd HH:mm") }} ~ 
+            {{ good.endTime | date("yyyy-MM-dd HH:mm") }}
+          </td>
+          <!-- 시작시간과 종료시간 정보를 data-start와 data-end 속성에 담습니다. -->
+          <td class="time" data-start="{{ good.startTime }}" data-end="{{ good.endTime }}">00:00:00</td>
+          <td>
+            <a href="/good/{{ good.id }}" class="enter btn">입장</a>
           </td>
         </tr>
       {% endfor %}
@@ -28,22 +36,60 @@
   </div>
   <script src="https://unpkg.com/event-source-polyfill/src/eventsource.min.js"></script>
   <script>
+    // SSE를 통해 서버에서 전달된 현재 시간을 사용하여 타이머 업데이트
     const es = new EventSource('/sse');
     es.onmessage = function (e) {
+      // 서버에서 전달된 현재 시간(ms)을 Date 객체로 변환합니다.
+      const serverTime = new Date(parseInt(e.data, 10));
+      
       document.querySelectorAll('.time').forEach((td) => {
-        const end = new Date(td.dataset.start); // 경매 시작 시간
-        const server = new Date(parseInt(e.data, 10));
-        end.setDate(end.getDate() + 1); // 경매 종료 시간
-        if (server >= end) { // 경매가 종료되었으면
+        // data-start와 data-end에 저장된 시간을 Date 객체로 변환합니다.
+        const start = new Date(td.dataset.start);
+        const end = new Date(td.dataset.end);
+        
+        // 경매 시작 전이면 타이머는 00:00:00으로 표시합니다.
+        if (serverTime < start) {
+          td.textContent = '00:00:00';
+          return;
+        }
+        
+        // 남은 시간 계산 (경매 종료까지)
+        const t = end - serverTime;
+        
+        // 남은 시간이 0 이하이면 경매가 종료된 것으로 간주합니다.
+        if (t <= 0) {
           td.textContent = '00:00:00';
         } else {
-          const t = end - server; // 경매 종료까지 남은 시간
           const seconds = ('0' + Math.floor((t / 1000) % 60)).slice(-2);
           const minutes = ('0' + Math.floor((t / 1000 / 60) % 60)).slice(-2);
-          const hours = ('0' + Math.floor((t / (1000 * 60 * 60)) % 24)).slice(-2);
-          td.textContent = hours + ':' + minutes + ':' + seconds ;
+          const hours = ('0' + Math.floor((t / (1000 * 60 * 60)))).slice(-2);
+          td.textContent = hours + ':' + minutes + ':' + seconds;
         }
       });
     };
+
+    // "입장" 버튼 클릭 시 현재 시간이 경매 진행 시간 범위 내인지 체크하는 코드 추가
+    document.querySelectorAll('.enter').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        // 가장 가까운 tr 요소를 찾고, 그 안의 .time 셀을 선택합니다.
+        const tr = e.target.closest('tr');
+        const timeCell = tr.querySelector('.time');
+        
+        // 시작시간과 종료시간을 가져와 Date 객체로 변환합니다.
+        const start = new Date(timeCell.dataset.start);
+        const end = new Date(timeCell.dataset.end);
+        const now = new Date();
+        
+        // 현재 시간이 경매 시작시간 이전이면 입장을 차단하고 알림을 띄웁니다.
+        if (now < start) {
+          e.preventDefault(); // 링크 이동을 차단
+          alert('아직 경매가 시작되지 않았습니다. 경매 시작 후에 입장해 주세요.');
+        } else if (now > end) {
+          // 현재 시간이 종료시간 이후이면 입장을 차단하고 알림을 띄웁니다.
+          e.preventDefault(); // 링크 이동을 차단
+          alert('경매가 이미 종료되었습니다.');
+        }
+      });
+    });
   </script>
 {% endblock %}

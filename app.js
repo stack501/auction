@@ -5,6 +5,10 @@ const cookieParser = require('cookie-parser');
 const session = require('express-session');
 const passport = require('passport');
 const nunjucks = require('nunjucks');
+const moment = require('moment');
+require('moment/locale/ko');  // 한글 locale 로드
+
+moment.locale('ko'); // Moment.js의 locale을 'ko'로 설정 (대한민국)
 const dotenv = require('dotenv');
 
 dotenv.config();
@@ -21,9 +25,15 @@ passportConfig();
 checkAuction();
 app.set('port', process.env.PORT || 8010);
 app.set('view engine', 'html');
-nunjucks.configure('views', {
+const env = nunjucks.configure('views', {
   express: app,
   watch: true,
+});
+// 커스텀 date 필터 추가
+env.addFilter('date', function(date, format) {
+  // date가 null이거나 유효하지 않은 경우 빈 문자열 반환
+  if (!date) return '';
+  return moment(date).format(format);
 });
 sequelize.sync({ force: false })
   .then(() => {

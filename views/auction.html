@@ -1,11 +1,12 @@
 {% extends 'layout.html' %}
 
 {% block good %}
-  <h2>{{good.name}}</h2>
-  <div>등록자: {{good.Owner.nick}}</div>
-  <div>시작가: {{good.price}}원</div>
-  <strong id="time" data-start="{{good.createdAt}}"></strong>
-  <img id="good-img" src="/img/{{good.img}}">
+  <h2>{{ good.name }}</h2>
+  <div>등록자: {{ good.Owner.nick }}</div>
+  <div>시작가: {{ good.price }}원</div>
+  <!-- 시작시간과 종료시간을 data 속성으로 전달 -->
+  <strong id="time" data-start="{{ good.startTime }}" data-end="{{ good.endTime }}"></strong>
+  <img id="good-img" src="/img/{{ good.img }}">
 {% endblock %}
 
 {% block content %}
@@ -13,55 +14,69 @@
     <div id="bid">
       {% for bid in auction %}
         <div>
-          <span>{{bid.User.nick}}님: </span>
-          <strong>{{bid.bid}}원에 입찰하셨습니다.</strong>
+          <span>{{ bid.User.nick }}님: </span>
+          <strong>{{ bid.bid }}원에 입찰하셨습니다.</strong>
           {% if bid.msg %}
-            <span>({{bid.msg}})</span>
+            <span>({{ bid.msg }})</span>
           {% endif %}
         </div>
       {% endfor %}
     </div>
     <form id="bid-form">
-      <input type="number" name="bid" placeholder="입찰가" required min="{{good.price}}">
-      <input type="msg" name="msg" placeholder="메시지(선택사항)" maxlength="100">
-    <button class="btn" type="submit">입찰</button>
+      <input type="number" name="bid" placeholder="입찰가" required min="{{ good.price }}">
+      <input type="text" name="msg" placeholder="메시지(선택사항)" maxlength="100">
+      <button class="btn" type="submit">입찰</button>
     </form>
   </div>
   <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
   <script src="https://unpkg.com/event-source-polyfill/src/eventsource.min.js"></script>
   <script src="/socket.io/socket.io.js"></script>
   <script>
+    // 입찰 폼 제출 시 axios를 통해 입찰 요청 전송
     document.querySelector('#bid-form').addEventListener('submit', (e) => {
       e.preventDefault();
-      axios.post('/good/{{good.id}}/bid', { // 입찰 진행
+      axios.post('/good/{{ good.id }}/bid', { // 입찰 진행
         bid: e.target.bid.value,
         msg: e.target.msg.value,
       })
-        .catch((err) => {
-          console.error(err);
-          alert(err.response.data);
-        })
-        .finally(() => {
-          e.target.bid.value = '';
-          e.target.msg.value = '';
-        });
+      .catch((err) => {
+        console.error(err);
+        alert(err.response.data);
+      })
+      .finally(() => {
+        e.target.bid.value = '';
+        e.target.msg.value = '';
+      });
     });
+
+    // SSE를 통해 서버의 현재 시간을 받아와 타이머를 업데이트
     const es = new EventSource("/sse");
-    const time = document.querySelector('#time');
+    const timeEl = document.querySelector('#time');
     es.onmessage = (e) => {
-      const end = new Date(time.dataset.start); // 경매 시작 시간
-      const server = new Date(parseInt(e.data, 10));
-      end.setDate(end.getDate() + 1); // 경매 종료 시간
-      if (server >= end) { // 경매가 종료되었으면
-        time.textContent = '00:00:00';
+      // 시작시간과 종료시간을 Date 객체로 변환합니다.
+      const start = new Date(timeEl.dataset.start);
+      const end = new Date(timeEl.dataset.end);
+      // 서버에서 전달한 현재 시간을 Date 객체로 변환합니다.
+      const serverTime = new Date(parseInt(e.data, 10));
+      
+      // 경매 시작 전이면 남은 시간을 00:00:00으로 표시
+      if (serverTime < start) {
+        timeEl.textContent = '00:00:00';
       } else {
-        const t = end - server;
-        const seconds = ('0' + Math.floor((t / 1000) % 60)).slice(-2);
-        const minutes = ('0' + Math.floor((t / 1000 / 60) % 60)).slice(-2);
-        const hours = ('0' + Math.floor((t / (1000 * 60 * 60)) % 24)).slice(-2);
-        time.textContent = hours + ':' + minutes + ':' + seconds;
+        // 경매가 시작된 상태에서 남은 시간 계산 (경매 종료까지)
+        const t = end - serverTime;
+        if (t <= 0) { // 경매 종료 후
+          timeEl.textContent = '00:00:00';
+        } else {
+          const seconds = ('0' + Math.floor((t / 1000) % 60)).slice(-2);
+          const minutes = ('0' + Math.floor((t / 1000 / 60) % 60)).slice(-2);
+          const hours = ('0' + Math.floor((t / (1000 * 60 * 60)))).slice(-2);
+          timeEl.textContent = hours + ':' + minutes + ':' + seconds;
+        }
       }
     };
+
+    // Socket.IO를 통한 실시간 입찰 정보 수신
     const socket = io.connect('http://localhost:8010', {
       path: '/socket.io'
     });
@@ -82,9 +97,11 @@
     });
   </script>
   <script>
+    // 페이지 로드 시 쿼리 스트링에 auctionError가 있으면 alert로 표시
     window.onload = () => {
-      if (new URL(location.href).searchParams.get('auctionError')) {
-        alert(new URL(location.href).searchParams.get('auctionError'));
+      const urlParams = new URL(location.href).searchParams;
+      if (urlParams.get('auctionError')) {
+        alert(urlParams.get('auctionError'));
       }
     };
   </script>

@@ -3,18 +3,37 @@
 {% block content %}
   <div class="timeline">
     <form action="/good" id="good-form" method="post" enctype="multipart/form-data">
+      <!-- 상품명 입력 -->
       <div class="input-group">
         <label for="good-name">상품명</label>
         <input type="text" id="good-name" name="name" required autofocus>
       </div>
+
+      <!-- 상품 사진 업로드 -->
       <div class="input-group">
         <label for="good-photo">상품 사진</label>
         <input type="file" id="good-photo" name="img" required>
       </div>
+
+      <!-- 시작 가격 입력 -->
       <div class="input-group">
         <label for="good-price">시작 가격</label>
         <input type="number" id="good-price" name="price" required>
       </div>
+
+      <!-- 경매 시작시간 입력 -->
+      <div class="input-group">
+        <label for="auction-start">경매 시작시간</label>
+        <input type="datetime-local" id="auction-start" name="startTime" required>
+      </div>
+
+      <!-- 경매 종료시간 입력 -->
+      <div class="input-group">
+        <label for="auction-end">경매 종료시간</label>
+        <input type="datetime-local" id="auction-end" name="endTime" required>
+      </div>
+
+      <!-- 상품 등록 버튼 -->
       <button id="join-btn" class="btn" type="submit">상품 등록</button>
     </form>
   </div>

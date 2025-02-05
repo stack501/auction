@@ -1,16 +1,16 @@
-const { scheduleJob } = require('node-schedule');
 const { Op } = require('sequelize');
 const { Good, Auction, User, sequelize } = require('./models');
+const { scheduleJob } = require('./helpers/auctionHelper');
 
 module.exports = async () => {
   console.log('checkAuction');
   try {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1); // 어제 시간
-    const targets = await Good.findAll({ // 24시간이 지난 낙찰자 없는 경매들
+    
+    const currentTime = new Date();
+    const targets = await Good.findAll({ // 종료시간 < 현재시간 => 현재시간이 종료시간보다 크다는 것은 이미 경매종료된 상품
       where: {
         SoldId: null,
-        createdAt: { [Op.lte]: yesterday },
+        endTime: { [Op.lt]: currentTime },
       },
     });
     targets.forEach(async (good) => {
@@ -35,33 +35,21 @@ module.exports = async () => {
             await t.rollback();
         }
     });
-    const ongoing = await Good.findAll({ // 24시간이 지나지 않은 낙찰자 없는 경매들
+    const ongoing = await Good.findAll({ // 현재시간 > 시작시간 && 현재시간 < 종료시간 => 경매 진행중인 상품
       where: {
         SoldId: null,
-        createdAt: { [Op.gte]: yesterday },
+        startTime: { [Op.lte]: currentTime },
+        endTime: { [Op.gte]: currentTime},
       },
     });
-    ongoing.forEach((good) => {
-      const end = new Date(good.createdAt);
-      end.setDate(end.getDate() + 1); // 생성일 24시간 뒤가 낙찰 시간
-      const job = scheduleJob(end, async() => {
-        const success = await Auction.findOne({
-          where: { GoodId: good.id },
-          order: [['bid', 'DESC']],
-        });
-        await good.setSold(success.UserId);
-        await User.update({
-          money: sequelize.literal(`money - ${success.bid}`),
-        }, {
-          where: { id: success.UserId },
-        });
-      });
-      job.on('error', (err) => {
-        console.error('스케줄링 에러', err);
-      });
-      job.on('success', () => {
-        console.log('스케줄링 성공');
-      });
+    ongoing.forEach(async (good) => {
+      const startDate = good.startDate;
+      const endDate = good.endTime;
+      if (currentTime < startDate) {
+        await scheduleJob(good, startDate);
+      } else {
+          await scheduleJob(good, endDate);
+      }
     });
 
   } catch (error) {

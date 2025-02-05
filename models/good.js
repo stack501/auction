@@ -16,6 +16,14 @@ class Good extends Sequelize.Model {
                 allowNull: false,
                 defaultValue: 0,
             },
+            startTime: {
+                type: Sequelize.DATE,
+                allowNull: true,
+            },
+            endTime: {
+                type: Sequelize.DATE,
+                allowNull: true,
+            }
         }, {
             sequelize,
             timestamps: true,
